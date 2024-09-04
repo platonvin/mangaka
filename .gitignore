@@ -1,0 +1,10 @@
+todo.txt
+vcpkg_installed
+/compile_flags.txt
+/obj
+/mangaka.exe
+scripts
+/assets/Mutant Punch_out/Ch03_1001_Normal.png
+/assets/Mutant Punch_out/Ch03_1001_Diffuse.png
+/assets/Mutant Punch_out/ao_met_rough_Ch03_1001_Glossiness.jpg
+/shaders/compiled
