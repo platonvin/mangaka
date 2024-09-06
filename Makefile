@@ -37,6 +37,7 @@ else
 endif
 	
 always_enabled_flags = -fno-exceptions -Wuninitialized -std=c++20
+optimize_flags = -O2 -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mcx16 -mavx -mpclmul 
 
 #default target
 profile = -D_PRINTLINE
@@ -45,15 +46,15 @@ all: init mangaka
 
 obj/%.o: src/%.cpp
 	c++ $(always_enabled_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
-DEPS = $(lib_objs:.o=.d)
+DEPS = $(objs:.o=.d)
 -include $(DEPS)
 obj/vktf/%.o: src/vktf/%.cpp
-	c++ $(always_enabled_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
-DEPS = $(lib_objs:.o=.d)
+	c++ $(always_enabled_flags) $(optimize_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
+DEPS = $(objs:.o=.d)
 -include $(DEPS)
 obj/vktf/basisu/transcoder/%.o: src/vktf/basisu/transcoder/%.cpp
-	c++ $(always_enabled_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
-DEPS = $(lib_objs:.o=.d)
+	c++ $(always_enabled_flags) $(optimize_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
+DEPS = $(objs:.o=.d)
 -include $(DEPS)
 
 mangaka: init build shaders

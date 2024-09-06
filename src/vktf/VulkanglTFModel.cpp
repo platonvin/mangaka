@@ -1,3 +1,5 @@
+//i could not get gltf to work due to lack of IQ
+
 /**
  * Vulkan glTF model and texture loading class based on tinyglTF (https://github.com/syoyo/tinygltf)
  *
@@ -18,8 +20,8 @@
 
 #include "VulkanglTFModel.hpp"
 
-#define vmaDestroyBuffer(x,y,z) do {vmaDestroyBuffer(x,y,z); println}while(0);
-#define vmaMapMemory(x,y,z) do {vmaMapMemory(x,y,z); println}while(0);
+// #define vmaDestroyBuffer(x,y,z) do {vmaDestroyBuffer(x,y,z); println}while(0);
+// #define vmaMapMemory(x,y,z) do {vmaMapMemory(x,y,z); println}while(0);
 
 namespace vkglTF
 {
@@ -81,7 +83,8 @@ namespace vkglTF
 	{
 		this->renderer = renderer;
 		// KTX2 files need to be handled explicitly
-println
+// println
+		// tinygltf::Image
 		bool isKtx2 = false;
 		if (gltfimage.uri.find_last_of(".") != std::string::npos) {
 			if (gltfimage.uri.substr(gltfimage.uri.find_last_of(".") + 1) == "ktx2") {
@@ -90,11 +93,11 @@ println
 		}
 
 		VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-println
+// println
 
 		if (isKtx2) {
 			// Image is KTX2 using basis universal compression. Those images need to be loaded from disk and will be transcoded to a native GPU format
-println
+// println
 
 			basist::ktx2_transcoder ktxTranscoder;
 			const std::string filename = path + "\\" + gltfimage.uri;
@@ -102,21 +105,21 @@ println
 			if (!ifs.is_open()) {
 				crash("Could not load the requested image file " + filename);
 			}
-println
+// println
 
 			uint32_t inputDataSize = static_cast<uint32_t>(ifs.tellg());
 			char* inputData = new char[inputDataSize];
-println
+// println
 
 			ifs.seekg(0, std::ios::beg);
 			ifs.read(inputData, inputDataSize);
-println
+// println
 			
 			bool success = ktxTranscoder.init(inputData, inputDataSize);
 			if (!success) {
 				crash("Could not initialize ktx2 transcoder for image file " + filename);
 			}
-println
+// println
 
 			// Select target format based on device features (use uncompressed if none supported)
 			auto targetFormat = basist::transcoder_texture_format::cTFRGBA32;
@@ -126,7 +129,7 @@ println
 			// 	vkGetPhysicalDeviceFormatProperties(renderer->physicalDevice, format, &formatProperties);
 			// 	return ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) && (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT));
 			// };
-println
+// println
 
 			if (renderer->physicalDeviceFeatures.textureCompressionBC) {
 				// BC7 is the preferred block compression if available
@@ -143,7 +146,7 @@ println
 				}
 			}
 			// Adaptive scalable texture compression
-println
+// println
 			if (renderer->physicalDeviceFeatures.textureCompressionASTC_LDR) {
 				auto formatSupported = renderer->findSupportedFormat({VK_FORMAT_ASTC_4x4_SRGB_BLOCK}, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_TRANSFER_DST_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT);	
 
@@ -215,7 +218,7 @@ println
 				}
 				bufferPtr += outputSize;
 			}
-println
+// println
 
 			renderer->createImageStorages(&image,
 				VK_IMAGE_TYPE_2D,
@@ -230,7 +233,7 @@ println
 			vmaMapMemory(renderer->VMAllocator, stagingBuffer.alloc, &stagingBufferMapped);
 			memcpy(stagingBufferMapped, buffer, totalBufferSize);
 
-println
+// println
 			VkCommandBuffer copyCmd = renderer->beginSingleTimeCommands();
 
 			VkImageSubresourceRange 
@@ -280,12 +283,12 @@ println
 			imageMemoryBarrier.subresourceRange = subresourceRange;
 			vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 
-println
+// println
 			renderer->endSingleTimeCommands(copyCmd);
 
 			vmaUnmapMemory(renderer->VMAllocator, stagingBuffer.alloc);
 			vmaDestroyBuffer(renderer->VMAllocator, stagingBuffer.buffer, stagingBuffer.alloc);
-println
+// println
 
 			delete[] buffer;
 			delete[] inputData;
@@ -319,38 +322,46 @@ println
 			if (gltfimage.pixel_type == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
 				format = VK_FORMAT_R16G16B16A16_UNORM;
 			}
-println
+// println
 
 			image.extent.width = gltfimage.width;
 			image.extent.height = gltfimage.height;
+			image.extent.depth = 1;
 			image.mip_levels = static_cast<uint32_t>(floor(log2(std::max(image.extent.width, image.extent.height))) + 1.0);
-println
+// println
 
 			VkFormatProperties formatProperties;
 			vkGetPhysicalDeviceFormatProperties(renderer->physicalDevice, format, &formatProperties);
 			assert(formatProperties.optimalTilingFeatures& VK_FORMAT_FEATURE_BLIT_SRC_BIT);
 			assert(formatProperties.optimalTilingFeatures& VK_FORMAT_FEATURE_BLIT_DST_BIT);
 
-println
+// println
 
 			Buffer stagingBuffer;
 			renderer->createBufferStorages(&stagingBuffer, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, bufferSize, true);
 			void* stagingBufferMapped;
-println
-			printl((*renderer).VMAllocator);
-			printl(renderer);
-			printl(stagingBuffer.alloc);
-			printl(stagingBuffer.buffer);
-			printl(&stagingBufferMapped);
+// println
+			// printl((*renderer).VMAllocator);
+			// printl(renderer);
+			// printl(stagingBuffer.alloc);
+			// printl(stagingBuffer.buffer);
+			// printl(&stagingBufferMapped);
 			vmaMapMemory(renderer->VMAllocator, stagingBuffer.alloc, &stagingBufferMapped);
 			memcpy(stagingBufferMapped, buffer, bufferSize);
-println
+// println
 
 			if (deleteBuffer) {
 				delete[] buffer;
 			}
-println
-
+// println
+			// printl(image.mip_levels);
+			// printl(image.alloc);
+			// printl(image.extent.width);
+			// printl(image.extent.height);
+			// printl(image.extent.depth);
+			// printl(image.aspect);
+			// printl(image.format);
+			// printl(format);
 			renderer->createImageStorages(&image,
 				VK_IMAGE_TYPE_2D,
 				format,
@@ -359,10 +370,10 @@ println
 				0,
 				VK_IMAGE_ASPECT_COLOR_BIT,
 				{image.extent}, image.mip_levels);
-println
+// println
 
 			VkCommandBuffer copyCmd = renderer->beginSingleTimeCommands();
-println
+// println
 
 			VkImageSubresourceRange subresourceRange = {};
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -380,7 +391,7 @@ println
 				imageMemoryBarrier.subresourceRange = subresourceRange;
 				vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
-println
+// println
 
 			VkBufferImageCopy bufferCopyRegion = {};
 			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -404,13 +415,13 @@ println
 				imageMemoryBarrier.subresourceRange = subresourceRange;
 				vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
-println
+// println
 
 			renderer->endSingleTimeCommands(copyCmd);
 
 			vmaUnmapMemory(renderer->VMAllocator, stagingBuffer.alloc);
 			vmaDestroyBuffer(renderer->VMAllocator, stagingBuffer.buffer, stagingBuffer.alloc);
-println
+// println
 
 			// Generate the mip chain (glTF uses jpg and png, so we need to create this manually)
 			VkCommandBuffer blitCmd = renderer->beginSingleTimeCommands();
@@ -517,7 +528,7 @@ println
 		this->uniformBlock.matrix = matrix;
 		renderer->createBufferStorages(
 			&uniformBuffer,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			sizeof(uniformBlock),
 			true);
 			vmaMapMemory(renderer->VMAllocator, uniformBuffer.alloc, &uniformBuffer.mapped);
@@ -709,7 +720,7 @@ println
 			vertices.buffer = VK_NULL_HANDLE;
 		}
 		if (indices.buffer != VK_NULL_HANDLE) {
-			renderer->deleteBuffers(&vertices);
+			renderer->deleteBuffers(&indices);
 			indices.buffer = VK_NULL_HANDLE;
 		}
 		for (auto texture : textures) {
@@ -1035,9 +1046,9 @@ println
 				textureSampler = textureSamplers[tex.sampler];
 			}
 			vkglTF::Texture texture;
-println
+// println
 			texture.fromglTfImage(image, filePath, textureSampler, renderer);
-println
+// println
 			textures.push_back(texture);
 		}
 	}
@@ -1337,9 +1348,9 @@ println
 
 		// @todo
 		gltfContext.SetImageLoader(loadImageDataFunc, nullptr);
-println
+// println
 		bool fileLoaded = binary ? gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filename.c_str()) : gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename.c_str());
-println
+// println
 
 		LoaderInfo loaderInfo{};
 		size_t vertexCount = 0;
@@ -1356,13 +1367,13 @@ println
 				}
 			}
 
-println
+// println
 			loadTextureSamplers(gltfModel);
-println
+// println
 			loadTextures(gltfModel, renderer);
-println
+// println
 			loadMaterials(gltfModel);
-println
+// println
 
 			const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 
@@ -1382,7 +1393,7 @@ println
 				loadAnimations(gltfModel);
 			}
 			loadSkins(gltfModel);
-println
+// println
 
 			for (auto node : linearNodes) {
 				// Assign skins
@@ -1427,7 +1438,7 @@ println
 		vmaMapMemory(renderer->VMAllocator, vertexStaging.alloc, &data);
 		memcpy(data, loaderInfo.vertexBuffer, vertexBufferSize);
 		vmaMapMemory(renderer->VMAllocator, indexStaging.alloc, &data);
-		memcpy(data, loaderInfo.vertexBuffer, indexBufferSize);
+		memcpy(data, loaderInfo.indexBuffer, indexBufferSize);
 
 		// Create device local buffers
 		// Vertex buffer
@@ -1471,27 +1482,43 @@ println
 		getSceneDimensions();
 	}
 
-	void Model::drawNode(Node *node, VkCommandBuffer commandBuffer)
-	{
-		if (node->mesh) {
-			for (Primitive *primitive : node->mesh->primitives) {
-				vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
-			}
-		}
-		for (auto& child : node->children) {
-			drawNode(child, commandBuffer);
-		}
-	}
+	// void Model::drawNode(Node *node, VkCommandBuffer commandBuffer)
+	// {
+	// 	if (node->mesh) {
+	// 		VkDescriptorBufferInfo
+	// 			info = {};
+	// 			info.buffer = node->mesh->uniformBuffer.buffer; //CHANGE ME
+	// 			info.range = VK_WHOLE_SIZE;
+	// 		VkWriteDescriptorSet
+	// 			write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	// 			write.dstSet = NULL;
+	// 			write.dstBinding = 0;
+	// 			write.dstArrayElement = 0;
+	// 			write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	// 			write.descriptorCount = 1;
+	// 			write.pBufferInfo = &info;
+	// 		vector<VkWriteDescriptorSet> descriptorWrites = {write};
+	// 		vkCmdPushDescriptorSetKHR (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mapPipe.lineLayout, 1, descriptorWrites.size(), descriptorWrites.data());
 
-	void Model::draw(VkCommandBuffer commandBuffer)
-	{
-		const VkDeviceSize offsets[1] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-		for (auto& node : nodes) {
-			drawNode(node, commandBuffer);
-		}
-	}
+	// 		for (Primitive *primitive : node->mesh->primitives) {
+				
+	// 			vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+	// 		}
+	// 	}
+	// 	for (auto& child : node->children) {
+	// 		drawNode(child, commandBuffer);
+	// 	}
+	// }
+
+	// void Model::draw(VkCommandBuffer commandBuffer)
+	// {
+	// 	const VkDeviceSize offsets[1] = { 0 };
+	// 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer, offsets);
+	// 	vkCmdBindIndexBuffer(commandBuffer, indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+	// 	for (auto& node : nodes) {
+	// 		drawNode(node, commandBuffer);
+	// 	}
+	// }
 
 	void Model::calculateBoundingBox(Node *node, Node *parent) {
 		BoundingBox parentBvh = parent ? parent->bvh : BoundingBox(dimensions.min, dimensions.max);

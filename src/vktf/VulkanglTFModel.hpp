@@ -74,7 +74,7 @@ namespace vkglTF
 
 	struct Texture {
 		Renderer* renderer;
-		Image image;
+		Image image = {};
 
 		VkSampler sampler;
 		void updateDescriptor();
@@ -136,7 +136,7 @@ namespace vkglTF
 		vector<Primitive*> primitives;
 		BoundingBox bb;
 		BoundingBox aabb;
-		Buffer uniformBuffer;
+		Buffer uniformBuffer = {};
 		struct UniformBlock {
 			mat4 matrix;
 			mat4 jointMatrix[MAX_NUM_JOINTS]{};

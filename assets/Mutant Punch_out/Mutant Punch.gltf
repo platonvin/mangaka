@@ -786,8 +786,8 @@
             "uri": "met_rough.png"
         },
         {
-            "name": "diffuse.png",
-            "uri": "diffuse.png"
+            "name": "diffuse_dark.png",
+            "uri": "diffuse_dark.png"
         }
     ],
     "samplers": [

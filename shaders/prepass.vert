@@ -8,7 +8,7 @@ layout (location = 4) in uvec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
 layout (location = 6) in vec4 inColor0;
 
-layout (set = 0, binding = 1) uniform UBO{
+layout (set = 0, binding = 0) uniform UBO{
 	mat4 projection;
 	vec4 lightDir;
 	vec4 cameraDir;
@@ -27,10 +27,6 @@ layout (push_constant) uniform PCO {
 	mat4 model;
 } pco;
 
-layout (location = 0) out vec3 outWorldPos;
-layout (location = 1) out vec2 outUV;
-layout (location = 2) out vec3 outNormal;
-
 void main() 
 {
 	vec4 locPos;
@@ -43,14 +39,14 @@ void main()
 			inWeight0.w * node.jointMatrix[inJoint0.w];
 
 		locPos = pco.model * node.matrix * skinMat * vec4(inPos, 1.0);
-		outNormal = normalize(transpose(inverse(mat3(pco.model * node.matrix * skinMat))) * inNormal);
+		// outNormal = normalize(transpose(inverse(mat3(pco.model * node.matrix * skinMat))) * inNormal);
 	} else {
 		locPos = pco.model * node.matrix * vec4(inPos, 1.0);
-		outNormal = normalize(transpose(inverse(mat3(pco.model * node.matrix))) * inNormal);
+		// outNormal = normalize(transpose(inverse(mat3(pco.model * node.matrix))) * inNormal);
 	}
 	locPos.y = -locPos.y;
-	outWorldPos = locPos.xyz / locPos.w;
-	outUV = inUV0;
+	vec3 outWorldPos = locPos.xyz / locPos.w;
+	// outUV = inUV0;
 	// outUV = inUV1;
 	vec4 clip =  (ubo.projection * vec4(outWorldPos, 1.0));// * 1000000.0;
 	// gl_Position.xy ;

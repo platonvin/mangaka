@@ -48,8 +48,8 @@ void main(){
     float random = hash(uvec2(gl_FragCoord.xy));
 
     vec3 new_color = old_color;
-        new_color = adjust_brightness(new_color, 0.3*random);
-        new_color = adjust_saturation(new_color, 0.5*random);
+        // new_color = adjust_brightness(new_color, 0.3*random);
+        // new_color = adjust_saturation(new_color, 0.5*random);
 
 	outFragColor = vec4(new_color,1);
 }
