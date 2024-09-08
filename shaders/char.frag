@@ -21,6 +21,11 @@ layout (set = 0, binding = 0) uniform UBO {
 	vec3 camPos;
 } ubo;
 
+float hash13(vec3 p3){
+	p3  = fract(p3 * .1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return fract((p3.x + p3.y) * p3.z);
+}
 #define MOD3 vec3(443.8975,397.2973, 491.1871)
 float ss_rand(){
 	vec2 p = gl_FragCoord.xy;
@@ -89,11 +94,11 @@ float sample_lightmap(vec3 world_pos, vec3 normal){
     // return (1.0-shadow);
     float shadow = texture(lightmap, vec2(clip2uv(light_clip.xy))).r; //TODO PCF
     // return float(shadow - world_depth);
-    return float(shadow > world_depth-0.001);
+    // return float(shadow > world_depth-0.001);
     // return float(shadow);
     // float bias = 0.0 * (float((dot(normal, ubo.globalLightDir.xyz) < 0.0))*2.0 - 1.0);
 
-    // vec2 light_uv = clip2uv(light_clip.xy);
+    vec2 light_uv = clip2uv(light_clip.xy);
     // float bias = 0.0;
 
     // const float PI = 3.15;
@@ -103,19 +108,19 @@ float sample_lightmap(vec3 world_pos, vec3 normal){
     // float normalized_radius = 00;
     // float norm_radius_step = 1.0 / float(sample_count);
 
-    // float total_light = 00;
+    float total_light = 00;
     // float total_weight = 00;
     // vec2 ratio = vec2(1);
 
     // vec2 pcfshift = vec2(1.0/1024.0);
 
-    // total_light += sample_lightmap_with_shift(-1,0,light_uv,world_depth);
-    // total_light += sample_lightmap_with_shift(0,0,light_uv,world_depth);
-    // total_light += sample_lightmap_with_shift(1,0,light_uv,world_depth);
-    // total_light += sample_lightmap_with_shift(0,-1,light_uv,world_depth);
-    // total_light += sample_lightmap_with_shift(0,1,light_uv,world_depth);
+    total_light += sample_lightmap_with_shift(-1,0,light_uv, world_depth-0.001);
+    total_light += sample_lightmap_with_shift(0,0,light_uv,  world_depth-0.001);
+    total_light += sample_lightmap_with_shift(1,0,light_uv,  world_depth-0.001);
+    total_light += sample_lightmap_with_shift(0,-1,light_uv, world_depth-0.001);
+    total_light += sample_lightmap_with_shift(0,1,light_uv,  world_depth-0.001);
 
-    // return ((total_light / 5.0));
+    return float((total_light / 5.0) > 0);
 }
 
 // can be improved with https://petrelharp.github.io/circle_rectangle_intersection/circle_rectangle_intersection.html
@@ -133,6 +138,7 @@ float msPixCircle(vec2 fpixel, float pixel_size, vec2 nearest_cell_center, float
     }
 	return float(inside_count) / float(samples * samples);
 }
+//how big points should be for same color on average
 float get_dither_radius(float color, float cell_size){
 	//if color is 0 radius is 0
 	//if color is 1 radius is (surely) >cell_size
@@ -178,26 +184,63 @@ float ss_point_dither_2(float cell_size, float radius){
 	// }
 }
 
-const int HATCH_DIRECTIONS = 6;
+const int HATCH_DIRECTIONS = 5;
 vec3 hatch_directions[HATCH_DIRECTIONS] = {
-        normalize(vec3(-0.16, 0.94, 0.30)),
-        normalize(vec3(-0.58, -0.55, 0.60)),
-        normalize(vec3(0.13, 0.73, -0.68)),
-        normalize(vec3(-0.21, 0.54, -0.82)),
-        normalize(vec3(-0.89, 0.43, 0.15)),
-        normalize(vec3(-0.68, -0.64, -0.34)),
+        normalize(vec3(-0.67, -0.44, 0.59)),
+        normalize(vec3(0.48, -0.64, -0.60)),
+        normalize(vec3(-0.54, -0.59, 0.61)),
+        normalize(vec3(0.71, -0.55, -0.44)),
+        normalize(vec3(-0.69, -0.10, 0.71)),
 };
+float _pow (float base, float power){
+	 return exp(power*log(base));
+}
+//how wide lines should be for same color on average
+float get_hatch_dist(float color, float width){
+	//single hatch pass covers:
+	//(width)/(width+dist) of uncovered
+	//so after n'th hatch there is In white space left
+	//I0 = 1 = (d/(w+d))^0;
+	//I1 = 1 * (d/(w+d))^1 = (d/(w+d))^1;
+	//I2 = (1 * (d/(w+d))^1) * (d/(w+d))^1 = (d/(w+d))^2;
+	//In = (d/(w+d))^n
+	//avg_color = (dist/(width+dist))^(HATCH_COUNT)
+	//d/(w+d) = color^(1/HC)
+	//d = (color^(1/HC)) * (w+d)
+	//d * (1 - color^(1/HC)) = w * color^(1/HC)
+	float pw = _pow(color, 1.0/float(HATCH_DIRECTIONS));
+	float dist = (width * pw) / (1 - pw);
 
-float ws_hatches_1(vec3 wpos, vec3 direction, float width, float dist){
+	return dist;
+}
+float  ws_hatches_1(vec3 wpos, float width, float dist){
 	float individual_width = width / float(HATCH_DIRECTIONS);
+	int total_paper = 0;
 	
 	for(int i=0; i<HATCH_DIRECTIONS; i++){
 		vec3 direction = hatch_directions[i];
 		float modf = mod(dot(wpos, direction), individual_width+dist);
-		if(modf < individual_width) return 0;
+		
+		if(modf <= individual_width) {
+			//we are now inside hatch line
+			//but hatches are not lines, they are not smooth
+			vec3 rnd_driver = vec3(gl_FragCoord.xy, 1.0);
+			float rnd = hash13(rnd_driver);
+
+			// normalized value of how pixel is close to edge between hatch and non-hatch. Closer to edge, less black pixels 
+			float dist_to_edge = (min(abs(modf - individual_width), modf) / individual_width)*2.0;
+			// if(rnd > dist_to_edge){
+				// return 1;
+			// }
+			// else{
+			total_paper++;
+			// }
+			return 0;
+		}
 	}
 	
 	return 1;
+	// return (1 - float(total_paper) / float(HATCH_DIRECTIONS));
 }
 
 float getMaxDepthDiff_simple(){
@@ -338,6 +381,9 @@ void main(){
     // vec3 normal = calcNormal(); 
     vec3 normal = loadNormal(); 
 
+	// float albedo_low  = floor(albedo*6.0)/6.0;
+	// float albedo_high =  ceil(albedo*6.0)/6.0;
+	// albedo = albedo_low;
 	float color = albedo;
 
 	{
@@ -346,7 +392,7 @@ void main(){
 	}{
 		float norm_diff = getMaxNormDiff_sobel(norm_buffer);
 		// float norm_diff = getMaxNormDiff_simple();
-		// float outline_norm = smoothstep(.495, .52, norm_diff);
+		// float outline_norm = smoothstep(.27, .35, norm_diff);
 		float outline_norm = smoothstep(.35, .42, norm_diff);
 		color *= 1-outline_norm;
 		// if(norm_diff > 0.42) color = 0;
@@ -358,32 +404,40 @@ void main(){
 		// 	color = 0;
 		// }
 		// float outline_depth = smoothstep(.25,.27, depth_diff*1000.0);
-		// float outline_depth = smoothstep(.08,.15, depth_diff*1000.0);
+		// float outline_depth = smoothstep(.18,.25, depth_diff*1000.0);
 		float outline_depth = smoothstep(.25,.28, depth_diff*1.0);
 		color *= 1-outline_depth;
 	}
 	{
-		float light = 0;
 		float lightmap_light = sample_lightmap(inWorldPos, normal);
 		//if in sulight
-		if(lightmap_light >= 0.001){
-			light = -dot(normal, ubo.lightDir.xyz);
-		} else {light = 0;} light += 0.2; //ambient
+		float light = lightmap_light;
+		// if(light > 0){
+		// 	light = -dot(normal, ubo.lightDir.xyz);
+		// 	outColor = vec4(vec3(light),1);
+		// 	return;
+		// }
+		light += 0.15; //ambient
 		
 		color *= light; //before that we were only calculating "albedo"
-
+		
 
 		if((color >= 0.05) && (color <= 0.15)){
-			color = ws_hatches_1(inLocalPos, normalize(cross(normal, vec3(1,1,1))), color*0.02, 0.001);
+			float width = 0.001;
+			// color = ws_hatches_1(inWorldPos, width, get_hatch_dist(color, width));
+			color = ws_hatches_1(inLocalPos, width*4.0, get_hatch_dist(color, width));
+			// color = ws_hatches_1(inLocalPos, normalize(cross(normal, vec3(1,1,1))), width, get_hatch_dist(color, width));
+			// color = ws_hatches_1(inLocalPos, get_hatch_dist(color, width), width);
 		}
-		else {
+		else 
+		{
 			float color_low  = floor(color*6.0)/6.0;
 			float color_high =  ceil(color*6.0)/6.0;
-			
-			if((color_low <= 0.95)){
+			color = color_low;			
+			if((color <= 0.95)){
 				// float cell_size = 1.25/color;
-				float cell_size = 5.0;// / (1.0+ color_low);
-				color = ss_point_dither_2(cell_size, get_dither_radius(color_low, cell_size));
+				float cell_size = 5.0;// / (1.0+ color);
+				color = ss_point_dither_2(cell_size, get_dither_radius(color, cell_size));
 			}
 		}
 	}{
