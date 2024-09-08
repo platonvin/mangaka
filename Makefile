@@ -37,12 +37,14 @@ else
 endif
 	
 always_enabled_flags = -fno-exceptions -Wuninitialized -std=c++20
-optimize_flags = -O2 -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mcx16 -mavx -mpclmul 
+optimize_flags = -Ofast -mmmx -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mcx16 -mavx -mpclmul 
 
 #default target
 profile = -D_PRINTLINE
 # profile = 
 all: init mangaka
+native: optimize_flags = -Ofast -march=native -s
+native: init mangaka
 
 obj/%.o: src/%.cpp
 	c++ $(always_enabled_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@

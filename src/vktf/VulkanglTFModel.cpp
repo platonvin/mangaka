@@ -1,4 +1,4 @@
-//i could not get gltf to work due to lack of IQ
+//lumal integration
 
 /**
  * Vulkan glTF model and texture loading class based on tinyglTF (https://github.com/syoyo/tinygltf)
@@ -11,6 +11,9 @@
 #pragma once
 
 
+#include "basisu/transcoder/basisu_transcoder.h"
+// #include "vulkan/vulkan.h"
+
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #if defined(__ANDROID__)
@@ -20,6 +23,7 @@
 
 #include "VulkanglTFModel.hpp"
 
+#include "../../lum-al/src/defines/macros.hpp"
 // #define vmaDestroyBuffer(x,y,z) do {vmaDestroyBuffer(x,y,z); println}while(0);
 // #define vmaMapMemory(x,y,z) do {vmaMapMemory(x,y,z); println}while(0);
 
@@ -76,6 +80,7 @@ namespace vkglTF
 	void Texture::destroy()
 	{
 		renderer->deleteImages(&image);
+		renderer->destroySampler(sampler);
 	}
 
 	// Loads the image for this texture. Supports both glTF's web formats (jpg, png, embedded and external files) as well as external KTX2 files with basis universal texture compression
@@ -531,12 +536,17 @@ namespace vkglTF
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			sizeof(uniformBlock),
 			true);
-			vmaMapMemory(renderer->VMAllocator, uniformBuffer.alloc, &uniformBuffer.mapped);
+			for(auto& buf: uniformBuffer)
+				vmaMapMemory(renderer->VMAllocator, buf.alloc, &buf.mapped);
+		// uniformBuffer_is_updated.allocate(renderer->settings.fif);
 	};
 
 	Mesh::~Mesh() {
-		vmaUnmapMemory(renderer->VMAllocator, uniformBuffer.alloc);
-		vmaDestroyBuffer(renderer->VMAllocator, uniformBuffer.buffer, uniformBuffer.alloc);
+		for(auto& buf: uniformBuffer){
+			vmaUnmapMemory(renderer->VMAllocator, buf.alloc);
+			vmaDestroyBuffer(renderer->VMAllocator, buf.buffer, buf.alloc);
+		}
+
 		for (Primitive* p : primitives)
 			delete p;
 	}
@@ -572,26 +582,45 @@ namespace vkglTF
 		}
 	}
 
+// 	void Node::reset_buffer_update_count() {
+// // println
+// 		if(mesh){
+// 			mesh->uniformBuffer_is_updated.move();
+// 			mesh->uniformBuffer_is_updated.current() = false;
+// 		}
+// // println
+// 		for (auto& child : children) {
+// // println
+// 			child->reset_buffer_update_count();
+// 		}
+// }
 	void Node::update() {
 		useCachedMatrix = false;
+		old_cachedMatrix = cachedMatrix;
 		if (mesh) {
-			glm::mat4 m = getMatrix();
-			if (skin) {
-				mesh->uniformBlock.matrix = m;
-				// Update join matrices
-				glm::mat4 inverseTransform = glm::inverse(m);
-				size_t numJoints = std::min((uint32_t)skin->joints.size(), MAX_NUM_JOINTS);
-				for (size_t i = 0; i < numJoints; i++) {
-					vkglTF::Node *jointNode = skin->joints[i];
-					glm::mat4 jointMat = jointNode->getMatrix() * skin->inverseBindMatrices[i];
-					jointMat = inverseTransform * jointMat;
-					mesh->uniformBlock.jointMatrix[i] = jointMat;
+				mesh->currentFIF = mesh->renderer->currentFrame;
+			// if(mesh->uniformBuffer_is_updated.current() == false){
+				// assert(mesh->uniformBuffer_is_updated.current() == false);
+				glm::mat4 m = getMatrix();
+				if (skin) {
+					mesh->uniformBlock.matrix = m;
+					// Update join matrices
+					glm::mat4 inverseTransform = glm::inverse(m);
+					size_t numJoints = std::min((uint32_t)skin->joints.size(), MAX_NUM_JOINTS);
+					for (size_t i = 0; i < numJoints; i++) {
+						vkglTF::Node *jointNode = skin->joints[i];
+						glm::mat4 jointMat = jointNode->getMatrix() * skin->inverseBindMatrices[i];
+						jointMat = inverseTransform * jointMat;
+						mesh->uniformBlock.jointMatrix[i] = jointMat;
+					}
+					mesh->uniformBlock.jointcount = static_cast<uint32_t>(numJoints);
+					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped, &mesh->uniformBlock, sizeof(mesh->uniformBlock));
+				} else {
+					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped, &m, sizeof(glm::mat4));
 				}
-				mesh->uniformBlock.jointcount = static_cast<uint32_t>(numJoints);
-				memcpy(mesh->uniformBuffer.mapped, &mesh->uniformBlock, sizeof(mesh->uniformBlock));
-			} else {
-				memcpy(mesh->uniformBuffer.mapped, &m, sizeof(glm::mat4));
-			}
+				// mesh->uniformBuffer.move();
+			// }
+			// mesh->uniformBuffer_is_updated.current() = true;
 		}
 
 		for (auto& child : children) {
@@ -750,6 +779,7 @@ namespace vkglTF
 		newNode->name = node.name;
 		newNode->skinIndex = node.skin;
 		newNode->matrix = glm::mat4(1.0f);
+		newNode->scale = vec3(globalscale);
 
 		// Generate local node matrix
 		glm::vec3 translation = glm::vec3(0.0f);
@@ -1567,7 +1597,7 @@ namespace vkglTF
 	}
 
 	void Model::updateAnimation(uint32_t index, float time)
-	{
+	{		
 		if (animations.empty()) {
 			std::cout << ".glTF does not contain animation." << std::endl;
 			return;
@@ -1607,6 +1637,7 @@ namespace vkglTF
 		}
 		if (updated) {
 			for (auto &node : nodes) {
+				// node->reset_buffer_update_count();
 				node->update();
 			}
 		}

@@ -8,25 +8,20 @@
 
 #pragma once
 
-#include <iostream>
 #include <stdlib.h>
 #include <string>
-#include <fstream>
 #include <vector>
 
 #include "../../lum-al/src/al.hpp"
-#include "../../lum-al/src/defines/macros.hpp"
-#include "vulkan/vulkan.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <gli/gli.hpp>
+// #include <gli/gli.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-#include "basisu/transcoder/basisu_transcoder.h"
 // #include "basisu.hpp"
 
 // ERROR is already defined in wingdi.h and collides with a define in the Draco headers
@@ -133,10 +128,11 @@ namespace vkglTF
 
 	struct Mesh {
 		Renderer *renderer;
+		int currentFIF = 0; //should be possible with ring<>.current(), but left for now
 		vector<Primitive*> primitives;
 		BoundingBox bb;
 		BoundingBox aabb;
-		Buffer uniformBuffer = {};
+		ring<Buffer> uniformBuffer = {}; //it is freqently updated, should use ring
 		struct UniformBlock {
 			mat4 matrix;
 			mat4 jointMatrix[MAX_NUM_JOINTS]{};
@@ -171,9 +167,11 @@ namespace vkglTF
 		bool useCachedMatrix{ false };
 		mat4 cachedLocalMatrix{ mat4(1.0f) };
 		mat4 cachedMatrix{ mat4(1.0f) };
+		mat4 old_cachedMatrix{ mat4(1.0f) };
 		mat4 localMatrix();
 		mat4 getMatrix();
 		void update();
+		void reset_buffer_update_count();
 		~Node();
 	};
 
@@ -208,6 +206,7 @@ namespace vkglTF
 
 		// vks::VulkanDevice *device;
 		Renderer* renderer;		
+		int currentFIF = 0;
 
 		struct Vertex {
 			vec3 pos;

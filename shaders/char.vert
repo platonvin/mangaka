@@ -8,8 +8,9 @@ layout (location = 4) in uvec4 inJoint0;
 layout (location = 5) in vec4 inWeight0;
 layout (location = 6) in vec4 inColor0;
 
-layout (set = 0, binding = 1) uniform UBO{
+layout (set = 0, binding = 0) uniform UBO{
 	mat4 projection;
+	mat4 lprojection;
 	vec4 lightDir;
 	vec4 cameraDir;
 	vec3 camPos;
@@ -28,8 +29,9 @@ layout (push_constant) uniform PCO {
 } pco;
 
 layout (location = 0) out vec3 outWorldPos;
-layout (location = 1) out vec2 outUV;
-layout (location = 2) out vec3 outNormal;
+layout (location = 1) out vec3 outLocalPos;
+layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec3 outNormal;
 
 void main() 
 {
@@ -50,6 +52,7 @@ void main()
 	}
 	locPos.y = -locPos.y;
 	outWorldPos = locPos.xyz / locPos.w;
+	outLocalPos = inPos;
 	outUV = inUV0;
 	// outUV = inUV1;
 	vec4 clip =  (ubo.projection * vec4(outWorldPos, 1.0));// * 1000000.0;

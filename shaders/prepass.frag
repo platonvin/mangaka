@@ -24,6 +24,10 @@ const float M_PI = 3.141592653589793;
 float square(float x){return x*x;}
 float qube(float x){return x*x*x;}
 
+vec3 encode_norm(vec3 decoded){
+	return decoded*0.5+0.5;
+}
+
 vec3 getNormal(){
 	vec3 tangentNormal = (texture(normalTexture, inUV).xyz * 2.0 - 1.0);
 	// tangentNormal = vec3(0,0,1);
@@ -47,5 +51,5 @@ void main(){
 
     vec3 normal = getNormal(); 
 
-	outNormal = normal;
+	outNormal = encode_norm(normal);
 }
