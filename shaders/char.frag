@@ -1,18 +1,29 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : require
+#include "blue_noise.glsl"
+
 layout(set = 0, binding = 1) uniform sampler2D depth_buffer;
 layout(set = 0, binding = 2) uniform sampler2D norm_buffer;
 // layout(set = 0, binding = 3) uniform sampler2DShadow lightmap;
 layout(set = 0, binding = 3) uniform sampler2D lightmap;
 
-layout (location = 0) in vec3 inWorldPos;
-layout (location = 1) in vec3 inLocalPos;
-layout (location = 2) in vec2 inUV;
-layout (location = 3) in vec3 inNormal;
+layout(location = 0) in vec3 inWorldPos;
+layout(location = 1) in vec3 inLocalPos;
+layout(location = 2) in vec2 inUV;
+layout(location = 3) in vec3 inNormal;
 // layout (location = 3) in float depth;
 
 
-// Scene bindings
+const uint 	SHADING_TYPE_FLAT_COLOR = 1 << 0;
+const uint SHADING_TYPE_DOTS       = 1 << 1;
+const uint SHADING_TYPE_HATCHES    = 1 << 2;
+const uint SHADING_TYPE_BLUE_NOISE = 1 << 3;
+const uint SHADES_COUNT = 10;
+// const uint MATERIALS[SHADES_COUNT] = {
+// 	SHADING_TYPE_FLAT_COLOR,
+// };
+
 layout (set = 0, binding = 0) uniform UBO {
 	mat4 projection;
 	mat4 lprojection;
@@ -20,21 +31,6 @@ layout (set = 0, binding = 0) uniform UBO {
 	vec4 cameraDir;
 	vec3 camPos;
 } ubo;
-
-float hash13(vec3 p3){
-	p3  = fract(p3 * .1031);
-    p3 += dot(p3, p3.zyx + 31.32);
-    return fract((p3.x + p3.y) * p3.z);
-}
-#define MOD3 vec3(443.8975,397.2973, 491.1871)
-float ss_rand(){
-	vec2 p = gl_FragCoord.xy;
-	vec3 p3  = fract(vec3(p.xyx) * MOD3);
-    p3 += dot(p3, p3.yzx + 19.19);
-    return fract((p3.x + p3.y) * p3.z);
-}
-
-const float PI = 3.14159265;
 
 // #define MAX_NUM_JOINTS 128
 layout (set = 1, binding = 0) uniform _UBO {
@@ -54,6 +50,21 @@ layout (set = 1, binding = 3) uniform sampler2D albedoTexture;
 // } pushConstants;
 
 layout (location = 0) out vec4 outColor;
+
+float hash13(vec3 p3){
+	p3  = fract(p3 * .1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return fract((p3.x + p3.y) * p3.z);
+}
+#define MOD3 vec3(443.8975,397.2973, 491.1871)
+float ss_rand(){
+	vec2 p = gl_FragCoord.xy;
+	vec3 p3  = fract(vec3(p.xyx) * MOD3);
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+const float PI = 3.14159265;
 
 const float M_PI = 3.141592653589793;
 
@@ -184,13 +195,15 @@ float ss_point_dither_2(float cell_size, float radius){
 	// }
 }
 
-const int HATCH_DIRECTIONS = 5;
+const int HATCH_DIRECTIONS = 7;
 vec3 hatch_directions[HATCH_DIRECTIONS] = {
-        normalize(vec3(-0.67, -0.44, 0.59)),
-        normalize(vec3(0.48, -0.64, -0.60)),
-        normalize(vec3(-0.54, -0.59, 0.61)),
-        normalize(vec3(0.71, -0.55, -0.44)),
-        normalize(vec3(-0.69, -0.10, 0.71)),
+        normalize(vec3(-0.64, -0.06, 0.76)),
+        normalize(vec3(0.70, 0.68, -0.21)),
+        normalize(vec3(0.61, -0.38, 0.70)),
+        normalize(vec3(-0.12, 0.87, -0.48)),
+        normalize(vec3(0.74, 0.23, -0.63)),
+        normalize(vec3(-0.76, -0.65, 0.03)),
+        normalize(vec3(-0.03, -0.63, -0.78)),
 };
 float _pow (float base, float power){
 	 return exp(power*log(base));
@@ -381,9 +394,9 @@ void main(){
     // vec3 normal = calcNormal(); 
     vec3 normal = loadNormal(); 
 
-	// float albedo_low  = floor(albedo*6.0)/6.0;
-	// float albedo_high =  ceil(albedo*6.0)/6.0;
-	// albedo = albedo_low;
+	float albedo_low  = floor(albedo*12.0)/12.0;
+	float albedo_high =  ceil(albedo*12.0)/12.0;
+	albedo = albedo_low;
 	float color = albedo;
 
 	{
@@ -423,22 +436,30 @@ void main(){
 		
 
 		if((color >= 0.05) && (color <= 0.15)){
-			float width = 0.001;
+			float width = 0.003;
 			// color = ws_hatches_1(inWorldPos, width, get_hatch_dist(color, width));
-			color = ws_hatches_1(inLocalPos, width*4.0, get_hatch_dist(color, width));
+			// color = ws_hatches_1(inLocalPos, width*4.0, get_hatch_dist(color, width));
+			color = ws_hatches_1(inLocalPos, width*2.0, get_hatch_dist(color, width));
+			// float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
+			// color = (.5 > blue_noise) ? 1 : 0;
 			// color = ws_hatches_1(inLocalPos, normalize(cross(normal, vec3(1,1,1))), width, get_hatch_dist(color, width));
 			// color = ws_hatches_1(inLocalPos, get_hatch_dist(color, width), width);
+		} else 
+		// if((color > 0.35) && (color < 0.45)){
+		if((color > 0.45) && (color < 0.66)){
+			float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
+			// color = (.5 > blue_noise) ? 1 : 0;
+			color = blue_noise;
+
 		}
-		else 
-		{
+		else if((color <= 0.95)){ 
 			float color_low  = floor(color*6.0)/6.0;
 			float color_high =  ceil(color*6.0)/6.0;
 			color = color_low;			
-			if((color <= 0.95)){
-				// float cell_size = 1.25/color;
-				float cell_size = 5.0;// / (1.0+ color);
-				color = ss_point_dither_2(cell_size, get_dither_radius(color, cell_size));
-			}
+			
+			// float cell_size = 1.25/color;
+			float cell_size = 5.0;// / (1.0+ color);
+			color = ss_point_dither_2(cell_size, get_dither_radius(color, cell_size));
 		}
 	}{
 		color = color*0.69 + 0.1;

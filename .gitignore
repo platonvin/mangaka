@@ -3,7 +3,6 @@ vcpkg_installed
 /compile_flags.txt
 /obj
 /mangaka.exe
-scripts
 /shaders/compiled
 /assets/chess/screenshot
 /assets/chess/README.md
@@ -12,3 +11,6 @@ scripts
 /assets/Mutant Punch_out/Ch03_1001_Normal.png
 /assets/Mutant Punch_out/ao_met_rough_Ch03_1001_Glossiness.jpg
 /assets/Mutant Punch_out/diffuse.png
+*.zip
+imgui.ini
+/scripts/build

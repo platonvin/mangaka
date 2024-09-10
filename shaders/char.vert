@@ -52,7 +52,7 @@ void main()
 	}
 	locPos.y = -locPos.y;
 	outWorldPos = locPos.xyz / locPos.w;
-	outLocalPos = (pco.model * vec4(inPos,1)).xyz;
+	outLocalPos = (vec4(inPos,1)).xyz;
 	outUV = inUV0;
 	// outUV = inUV1;
 	vec4 clip =  (ubo.projection * vec4(outWorldPos, 1.0));// * 1000000.0;

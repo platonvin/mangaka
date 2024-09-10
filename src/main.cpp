@@ -51,91 +51,100 @@ dmat4 lightTransform;
 dvec3 cameraPos = dvec3(0.730976, -0.8, 1.308277);
 dvec3 cameraDir = normalize(dvec3(-0.507972, 0.209617, -0.835479));
 
-dvec3 lightDir = normalize (vec3 (+0.507972, 0.309617, +0.735479));
+dvec3 lightDir = normalize (vec3 (-0.507972, 0.309617, -0.735479));
 // dvec3 lightDir = normalize (vec3 (0.5, 0.5, -0.9));
 #include <glm/gtx/string_cast.hpp>
 
-void checkNpushDset(vkglTF::Node *node, VkCommandBuffer commandBuffer, vkglTF::Primitive* primitive){
-    VkDescriptorBufferInfo
+void pushConstantsAndDescriptors(VkPipelineLayout pipelineLayout, VkCommandBuffer commandBuffer, const vector<VkWriteDescriptorSet>& descriptorWrites, mat4 localMatrix, VkShaderStageFlags stageFlags, VkPipelineBindPoint pipelineBindPoint, int targetSet){
+    vkCmdPushDescriptorSetKHR(commandBuffer, pipelineBindPoint, pipelineLayout, targetSet, descriptorWrites.size(), descriptorWrites.data());
+    struct { mat4 m; } pco = {localMatrix};
+    vkCmdPushConstants(commandBuffer, pipelineLayout, stageFlags, 0, sizeof(pco), &pco);
+}
+
+void addImageDescriptor(VkWriteDescriptorSet& write, VkDescriptorImageInfo& imageInfo, vkglTF::Texture* texture, uint32_t binding, vector<VkWriteDescriptorSet>& descriptorWrites){
+    if (texture) {
+        imageInfo.imageView = texture->image.view;
+        imageInfo.sampler = texture->sampler;
+        write.dstBinding = binding;
+        write.pImageInfo = &imageInfo;
+        descriptorWrites.push_back(write);
+    }
+}
+
+mat4 getModelMat(vkglTF::Model* model){
+    float scale = 1.0;
+    glm::vec3 translate = -glm::vec3(model->aabb[3][0], model->aabb[3][1], model->aabb[3][2]);
+    translate += -0.5f * glm::vec3(model->aabb[0][0], model->aabb[1][1], model->aabb[2][2]);
+
+    if(model == &chess){
+        scale = 2.0;
+    } else {
+        scale = 0.5;
+        translate /= 3.0;
+    }
+
+    mat4 model_mat = glm::mat4(1.0f);
+    model_mat[0][0] = scale;
+    model_mat[1][1] = scale;
+    model_mat[2][2] = scale;
+    model_mat = glm::translate(model_mat, translate);
+
+    return model_mat;
+}
+
+void checkNpushDset(vkglTF::Model* model, vkglTF::Node* node, VkCommandBuffer commandBuffer, vkglTF::Primitive* primitive){
+    VkDescriptorBufferInfo 
         uboInfo = {};
         uboInfo.buffer = node->mesh->uniformBuffer[node->mesh->currentFIF].buffer;
         uboInfo.range = VK_WHOLE_SIZE;
         uboInfo.offset = 0;
-    VkDescriptorImageInfo
-        nInfo = {};
-        nInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    VkDescriptorImageInfo
-        gInfo = {};
-        gInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    VkDescriptorImageInfo
-        dInfo = {};
-        dInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    
-    VkWriteDescriptorSet
-        uboWrite = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        uboWrite.dstSet = NULL;
-        uboWrite.dstBinding = 0;
-        uboWrite.dstArrayElement = 0;
-        uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboWrite.descriptorCount = 1;
-        uboWrite.pBufferInfo = &uboInfo;
-    vector<VkWriteDescriptorSet> descriptorWrites = {};
+
+    //pbr things from gltf
+    VkDescriptorImageInfo nInfo = {.imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo gInfo = {.imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo dInfo = {.imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+
+    VkWriteDescriptorSet uboWrite = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    uboWrite.dstBinding = 0;
+    uboWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboWrite.descriptorCount = 1;
+    uboWrite.pBufferInfo = &uboInfo;
+
+    vector<VkWriteDescriptorSet> descriptorWrites;
     descriptorWrites.push_back(uboWrite);
-    VkWriteDescriptorSet
+
+    VkWriteDescriptorSet 
         write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-        write.dstSet = NULL;
-        write.dstBinding = 1;
-        write.dstArrayElement = 0;
         write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         write.descriptorCount = 1;
-        nInfo.imageView = primitive->material.normalTexture->image.view;
-        nInfo.sampler = primitive->material.normalTexture->sampler;
-    if(stage == SHADING_PASS){
-        if(primitive->material.normalTexture){
-            nInfo.imageView = primitive->material.normalTexture->image.view;
-            nInfo.sampler = primitive->material.normalTexture->sampler;
-            write.pImageInfo = &nInfo;
-            descriptorWrites.push_back(write);
-        }
-        write.dstBinding++;
-        if(primitive->material.metallicRoughnessTexture){
-            nInfo.imageView = primitive->material.metallicRoughnessTexture->image.view;
-            nInfo.sampler = primitive->material.metallicRoughnessTexture->sampler;
-            write.pImageInfo = &nInfo;
-            descriptorWrites.push_back(write);
-        }
-        write.dstBinding++;
-        if(primitive->material.baseColorTexture){
-            nInfo.imageView = primitive->material.baseColorTexture->image.view;
-            nInfo.sampler = primitive->material.baseColorTexture->sampler;
-            write.pImageInfo = &nInfo;
-            descriptorWrites.push_back(write);
-        }
-        const int TARGET_DSET = 1;
-        vkCmdPushDescriptorSetKHR (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, raster_pipe.lineLayout, TARGET_DSET, descriptorWrites.size(), descriptorWrites.data());
-        struct {mat4 m;} pco = {node->getMatrix()};
-        vkCmdPushConstants(commandBuffer, raster_pipe.lineLayout, VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pco), &pco);
-    } else if(stage == DEPTH_PREPASS) {
-        if(primitive->material.normalTexture){
-            nInfo.imageView = primitive->material.normalTexture->image.view;
-            nInfo.sampler = primitive->material.normalTexture->sampler;
-            write.pImageInfo = &nInfo;
-            descriptorWrites.push_back(write);
-        }
-        const int TARGET_DSET = 1;
-        vkCmdPushDescriptorSetKHR (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, depth_pipe.lineLayout, TARGET_DSET, descriptorWrites.size(), descriptorWrites.data());
-        struct {mat4 m;} pco = {node->getMatrix()};
-        vkCmdPushConstants(commandBuffer, depth_pipe.lineLayout, VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pco), &pco);
-    } else if(stage == SHADOWMAP_PASS){
-        const int TARGET_DSET = 1;
-        vkCmdPushDescriptorSetKHR (commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowmap_pipe.lineLayout, TARGET_DSET, descriptorWrites.size(), descriptorWrites.data());
-        struct {mat4 m;} pco = {node->getMatrix()};
-        vkCmdPushConstants(commandBuffer, shadowmap_pipe.lineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pco), &pco);
-    }
 
+    mat4 model_mat = getModelMat(model);
+    // model = glm::identity<mat4>();
+
+    if (stage == SHADING_PASS) {
+        addImageDescriptor(write, nInfo, primitive->material.normalTexture, 1, descriptorWrites);
+        addImageDescriptor(write, nInfo, primitive->material.metallicRoughnessTexture, 2, descriptorWrites);
+        addImageDescriptor(write, nInfo, primitive->material.baseColorTexture, 3, descriptorWrites);
+
+        pushConstantsAndDescriptors( raster_pipe.lineLayout, commandBuffer, descriptorWrites, model_mat,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_PIPELINE_BIND_POINT_GRAPHICS, 1
+        );
+
+    } else if (stage == DEPTH_PREPASS) {
+        addImageDescriptor(write, nInfo, primitive->material.normalTexture, 1, descriptorWrites);
+
+        pushConstantsAndDescriptors(depth_pipe.lineLayout, commandBuffer, descriptorWrites, model_mat,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, VK_PIPELINE_BIND_POINT_GRAPHICS, 1
+        );
+
+    } else if (stage == SHADOWMAP_PASS) {
+        pushConstantsAndDescriptors(shadowmap_pipe.lineLayout, commandBuffer, descriptorWrites, model_mat,
+            VK_SHADER_STAGE_VERTEX_BIT, VK_PIPELINE_BIND_POINT_GRAPHICS, 1
+        );
+    }
 }
 
-void drawNode(vkglTF::Node *node, VkCommandBuffer commandBuffer)
+void drawNode(vkglTF::Model* model, vkglTF::Node* node, VkCommandBuffer commandBuffer)
 {   
     if (node->mesh) {
         // cout << to_string(node->getMatrix()) << "\n";
@@ -144,9 +153,10 @@ void drawNode(vkglTF::Node *node, VkCommandBuffer commandBuffer)
         assert(node->mesh->primitives.size() > 0);
         for (auto *primitive : node->mesh->primitives) {
             // printl(primitive->indexCount);
-            checkNpushDset(node, commandBuffer, primitive);        
+            checkNpushDset(model, node, commandBuffer, primitive);        
             // printl(primitive->firstIndex);
             // printl(primitive->vertexCount);
+
             if (primitive->hasIndices) {
                 vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
             } else {
@@ -159,7 +169,7 @@ void drawNode(vkglTF::Node *node, VkCommandBuffer commandBuffer)
     }
 // println
     for (auto& child : node->children) {
-        drawNode(child, commandBuffer);
+        drawNode(model, child, commandBuffer);
     }
 }
 
@@ -176,7 +186,7 @@ void drawModel(vkglTF::Model* model, VkCommandBuffer commandBuffer)
     //     }
     // }
     for (auto& node : model->nodes) {
-        drawNode(node, commandBuffer);
+        drawNode(model, node, commandBuffer);
     }
     // abort();
 }
@@ -194,7 +204,7 @@ void updateLight(){
     // dvec3 light_pos = dvec3(dvec2(settings.world_size*16),0)/2.0 - 5*16.0*lightDir;
     dvec3 light_pos = dvec3(0)/2. - 2.5 * lightDir;
     dmat4 view = glm::lookAt (light_pos, light_pos + lightDir, up);
-    dmat4 projection = glm::ortho (-2. ,2., 2.,-2., -10.0, +10.0);
+    dmat4 projection = glm::ortho (-2.1 ,2.1, 1.5,-1.5, -10.0, +10.0);
     dmat4 worldToScreen = projection * view;
     lightTransform = worldToScreen;
 }
@@ -293,7 +303,9 @@ int main(){
     
     // character.loadFromFile("C:/prog/mangaka/assets/chess/glTF/ABeautifulGame.gltf", &render, 1.0);
     character.loadFromFile("assets/Mutant Punch_out/Mutant Punch.gltf", &render, 1.0);
-    chess.loadFromFile("assets/chess/glTF/ABeautifulGame.gltf", &render, 2.0);
+    chess.loadFromFile("assets/chess/glTF/ABeautifulGame.gltf", &render, 1.0);
+    // chess.loadFromFile("assets/Scene/Scene.gltf", &render, 1.0);
+    // chess.loadFromFile("assets/chess/glTF/chess.gltf", &render, 2.0);
     // character.loadFromFile("C:/prog/mangaka/assets/Bistro_v5_2/untitled.gltf", &render, 1.0);
     // character.loadFromFile("C:/prog/mangaka/assets/char/untitled.glb", &render, 1.0);
     // character.loadFromFile("C:/prog/mangaka/assets/t.gltf", &render, 1.0);
@@ -462,11 +474,11 @@ int main(){
     glfwSetCursorPosCallback(render.window.pointer, mouse_callback);
     glfwSetInputMode(render.window.pointer, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 // println
-    for(int i=0; i<render.settings.fif; i++){
+    // for(int i=0; i<render.settings.fif; i++){
         for (auto &node : chess.nodes) {
             node->update();
         }
-    }
+    // }
 
     while(!glfwWindowShouldClose(render.window.pointer) && (glfwGetKey(render.window.pointer, GLFW_KEY_ESCAPE) != GLFW_PRESS)){
         glfwPollEvents();

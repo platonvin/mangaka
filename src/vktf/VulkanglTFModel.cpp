@@ -792,11 +792,11 @@ namespace vkglTF
 			glm::quat q = glm::make_quat(node.rotation.data());
 			newNode->rotation = glm::mat4(q);
 		}
-		glm::vec3 scale = glm::vec3(1.0f);
-		if (node.scale.size() == 3) {
-			scale = glm::make_vec3(node.scale.data());
-			newNode->scale = scale;
-		}
+		// glm::vec3 scale = glm::vec3(1.0f);
+		// if (node.scale.size() == 3) {
+		// 	scale = glm::make_vec3(node.scale.data());
+		// 	newNode->scale = scale;
+		// }
 		if (node.matrix.size() == 16) {
 			newNode->matrix = glm::make_mat4x4(node.matrix.data());
 		};

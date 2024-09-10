@@ -58,6 +58,11 @@ obj/vktf/basisu/transcoder/%.o: src/vktf/basisu/transcoder/%.cpp
 	c++ $(always_enabled_flags) $(optimize_flags) $(I) $(args) $(profile) -MMD -MP -c $< -o $@
 DEPS = $(objs:.o=.d)
 -include $(DEPS)
+#TODO dependencies
+lum-al/lib/liblumal.a:
+	cd lum-al
+	make library
+	cd ..
 
 mangaka: init build shaders
 ifeq ($(OS),Windows_NT)
@@ -102,7 +107,7 @@ shaders: $(ALL_SHADER_TARGETS)
 # library: $(lib_objs)
 # 	ar rvs lib/liblumal.a $(lib_objs)
 
-build: $(objs)
+build: $(objs) lum-al/lib/liblumal.a 
 	c++ -o mangaka $(objs) -llumal $(flags) $(I) $(L) $(REQUIRED_LIBS) $(STATIC_OR_DYNAMIC)
 
 init: obj obj/vktf obj/vktf/basisu obj/vktf/basisu/transcoder shaders/compiled
