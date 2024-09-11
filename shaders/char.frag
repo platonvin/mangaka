@@ -15,14 +15,24 @@ layout(location = 3) in vec3 inNormal;
 // layout (location = 3) in float depth;
 
 
-const uint 	SHADING_TYPE_FLAT_COLOR = 1 << 0;
+const uint SHADING_TYPE_FLAT_COLOR = 1 << 0;
 const uint SHADING_TYPE_DOTS       = 1 << 1;
 const uint SHADING_TYPE_HATCHES    = 1 << 2;
 const uint SHADING_TYPE_BLUE_NOISE = 1 << 3;
+
 const uint SHADES_COUNT = 10;
-// const uint MATERIALS[SHADES_COUNT] = {
-// 	SHADING_TYPE_FLAT_COLOR,
-// };
+const uint MATERIALS[SHADES_COUNT] = {
+	SHADING_TYPE_FLAT_COLOR,
+	SHADING_TYPE_HATCHES,
+	SHADING_TYPE_HATCHES,
+	SHADING_TYPE_BLUE_NOISE,
+	SHADING_TYPE_BLUE_NOISE,
+	SHADING_TYPE_BLUE_NOISE,
+	SHADING_TYPE_DOTS,
+	SHADING_TYPE_DOTS,
+	SHADING_TYPE_DOTS,
+	SHADING_TYPE_FLAT_COLOR,
+};
 
 layout (set = 0, binding = 0) uniform UBO {
 	mat4 projection;
@@ -386,6 +396,39 @@ vec3 loadNormal(){
 	return normal;
 }
 
+float shade(float color){
+	float shaded;
+	float color_low  = floor(color*float(SHADES_COUNT)) / float(SHADES_COUNT);
+	float color_high =  ceil(color*float(SHADES_COUNT)) / float(SHADES_COUNT);
+	int color_idx = int(color*float(SHADES_COUNT));
+	
+	uint shading_type = MATERIALS[color_idx];
+	if(shading_type == SHADING_TYPE_FLAT_COLOR){
+		shaded = color_low;
+	} else if(shading_type == SHADING_TYPE_HATCHES){
+		float width = 0.003;
+		// color = ws_hatches_1(inWorldPos, width, get_hatch_dist(color, width));
+		// color = ws_hatches_1(inLocalPos, width*4.0, get_hatch_dist(color, width));
+		shaded = ws_hatches_1(inLocalPos, width*2.0, get_hatch_dist(color, width));
+		// float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
+		// color = (.5 > blue_noise) ? 1 : 0;
+		// color = ws_hatches_1(inLocalPos, normalize(cross(normal, vec3(1,1,1))), width, get_hatch_dist(color, width));
+		// color = ws_hatches_1(inLocalPos, get_hatch_dist(color, width), width);
+	} else if(shading_type == SHADING_TYPE_BLUE_NOISE){
+		float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
+		// color = (.5 > blue_noise) ? 1 : 0;
+		shaded = blue_noise;
+	}
+	else if(shading_type == SHADING_TYPE_DOTS){
+		// float cell_size = 1.25/color;
+		float cell_size = 5.0;// / (1.0+ color);
+		shaded = ss_point_dither_2(cell_size, get_dither_radius(color, cell_size));
+	}
+
+	return shaded;
+}
+
+
 void main(){
 	vec2 uv = inUV;
     float albedo = texture(albedoTexture, uv).x;
@@ -400,9 +443,6 @@ void main(){
 	float color = albedo;
 
 	{
-	}{
-
-	}{
 		float norm_diff = getMaxNormDiff_sobel(norm_buffer);
 		// float norm_diff = getMaxNormDiff_simple();
 		// float outline_norm = smoothstep(.27, .35, norm_diff);
@@ -434,38 +474,16 @@ void main(){
 		
 		color *= light; //before that we were only calculating "albedo"
 		
+	}
 
-		if((color >= 0.05) && (color <= 0.15)){
-			float width = 0.003;
-			// color = ws_hatches_1(inWorldPos, width, get_hatch_dist(color, width));
-			// color = ws_hatches_1(inLocalPos, width*4.0, get_hatch_dist(color, width));
-			color = ws_hatches_1(inLocalPos, width*2.0, get_hatch_dist(color, width));
-			// float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
-			// color = (.5 > blue_noise) ? 1 : 0;
-			// color = ws_hatches_1(inLocalPos, normalize(cross(normal, vec3(1,1,1))), width, get_hatch_dist(color, width));
-			// color = ws_hatches_1(inLocalPos, get_hatch_dist(color, width), width);
-		} else 
-		// if((color > 0.35) && (color < 0.45)){
-		if((color > 0.45) && (color < 0.66)){
-			float blue_noise = hilbert_r1_blue_noisef(uvec2(gl_FragCoord));
-			// color = (.5 > blue_noise) ? 1 : 0;
-			color = blue_noise;
+	color = shade(color);
 
-		}
-		else if((color <= 0.95)){ 
-			float color_low  = floor(color*6.0)/6.0;
-			float color_high =  ceil(color*6.0)/6.0;
-			color = color_low;			
-			
-			// float cell_size = 1.25/color;
-			float cell_size = 5.0;// / (1.0+ color);
-			color = ss_point_dither_2(cell_size, get_dither_radius(color, cell_size));
-		}
-	}{
+	{
 		color = color*0.69 + 0.1;
 	}
 
 	vec3 color3 = vec3(color);
 	outColor = vec4(color3, 1.0);
-	// outColor = vec4(albedo, 1.0);
+	// outColor = vec4(albedo.xxx, 1.0);
+	// outColor = vec4(1.0);
 }

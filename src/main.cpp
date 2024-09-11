@@ -93,6 +93,7 @@ mat4 getModelMat(vkglTF::Model* model){
 }
 
 void checkNpushDset(vkglTF::Model* model, vkglTF::Node* node, VkCommandBuffer commandBuffer, vkglTF::Primitive* primitive){
+    // int fif = (render.settings.fif + node->mesh->currentFIF - 1) % render.settings.fif;
     VkDescriptorBufferInfo 
         uboInfo = {};
         uboInfo.buffer = node->mesh->uniformBuffer[node->mesh->currentFIF].buffer;
@@ -273,11 +274,12 @@ void update_controls(){
 
 int main(){
     Settings settings = {};
-        settings.vsync = false; //every time deciding to which image to render, wait until monitor draws current. Icreases perfomance, but limits fps
+        settings.vsync = false; //FIFO present mode
         settings.fullscreen = false;
         settings.debug = true; //Validation Layers. Use them while developing or be tricked into thinking that your code is correct
         settings.timestampCount = 128;
         settings.profile = false; //monitors perfomance via timestamps. You can place one with PLACE_TIMESTAMP() macro
+        //due to cached memory bug (memcpy to coherent is not visible), prefer using at least 2
         settings.fif = 2; // Frames In Flight. If 1, then record cmdbuff and submit it. If multiple, cpu will (might) be ahead of gpu by FIF-1, which makes GPU wait less
         // settings.deviceFeatures.independentBlend = VK_TRUE;
         settings.deviceFeatures.samplerAnisotropy = VK_TRUE;
@@ -475,9 +477,9 @@ int main(){
     glfwSetInputMode(render.window.pointer, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 // println
     // for(int i=0; i<render.settings.fif; i++){
-        for (auto &node : chess.nodes) {
-            node->update();
-        }
+    //     for (auto &node : chess.nodes) {
+    //         node->update();
+    //     }
     // }
 
     while(!glfwWindowShouldClose(render.window.pointer) && (glfwGetKey(render.window.pointer, GLFW_KEY_ESCAPE) != GLFW_PRESS)){

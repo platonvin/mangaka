@@ -536,8 +536,9 @@ namespace vkglTF
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			sizeof(uniformBlock),
 			true);
-			for(auto& buf: uniformBuffer)
+			for(auto& buf: uniformBuffer){
 				vmaMapMemory(renderer->VMAllocator, buf.alloc, &buf.mapped);
+			}
 		// uniformBuffer_is_updated.allocate(renderer->settings.fif);
 	};
 
@@ -622,7 +623,7 @@ namespace vkglTF
 					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped + sizeof(mat4)*(MAX_NUM_JOINTS+1), &zero, sizeof(zero));
 				}
 
-				
+				vmaFlushAllocation(mesh->renderer->VMAllocator, mesh->uniformBuffer[mesh->currentFIF].alloc, 0, sizeof(mesh->uniformBlock));
 				// mesh->uniformBuffer.move();
 			// }
 			// mesh->uniformBuffer_is_updated.current() = true;
