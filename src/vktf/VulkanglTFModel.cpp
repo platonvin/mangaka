@@ -617,7 +617,12 @@ namespace vkglTF
 					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped, &mesh->uniformBlock, sizeof(mesh->uniformBlock));
 				} else {
 					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped, &m, sizeof(glm::mat4));
+					//to override gargage TODO: ask SW
+					int zero = 0;
+					memcpy(mesh->uniformBuffer[mesh->currentFIF].mapped + sizeof(mat4)*(MAX_NUM_JOINTS+1), &zero, sizeof(zero));
 				}
+
+				
 				// mesh->uniformBuffer.move();
 			// }
 			// mesh->uniformBuffer_is_updated.current() = true;
